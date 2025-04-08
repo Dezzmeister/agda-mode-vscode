@@ -92,6 +92,9 @@ module type Module = {
   let bufferIsEmpty: t => bool
 
   let run: (t, option<VSCode.TextEditor.t>, Input.t) => Output.t
+  let lockEditor: t => unit
+  let unlockEditor: t => unit
+  let isEditorLocked: t => bool
   // let deviseChange: (t, string, string) => option<Input.t>
 }
 
@@ -140,6 +143,7 @@ module Module: Module = {
     mutable instances: array<Instance.t>,
     mutable activated: bool,
     mutable semaphore: bool,
+    mutable editorLock: bool,
     // for reporting when some task has be done
     chanLog: Chan.t<Log.t>,
   }
@@ -155,9 +159,20 @@ module Module: Module = {
       instances: [],
       activated: false,
       semaphore: false,
+      editorLock: false,
       chanLog,
     }
   }
+
+  let lockEditor = t => {
+    t.editorLock = true
+  }
+
+  let unlockEditor = t => {
+    t.editorLock = false
+  }
+
+  let isEditorLocked = t => t.editorLock
 
   // datatype for representing a rewrite to be made to the text editor
   type rewrite = {

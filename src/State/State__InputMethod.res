@@ -23,6 +23,7 @@ module Module: Module = {
   module EditorIM = {
     let handle = async (state: State.t, output): unit => {
       open IM.Output
+
       let handle = async kind =>
         switch kind {
         | UpdateView(sequence, translation, index) =>
@@ -37,14 +38,24 @@ module Module: Module = {
           State.Context.setIM(false)
           await State__View.Panel.updateIM(state, Deactivate)
         }
+
+      IM.lockEditor(state.editorIM)
       let _ = await output->Array.map(x => () => handle(x))->Util.Promise_.oneByOne
+      IM.unlockEditor(state.editorIM)
     }
 
     let runAndHandle = (state: State.t, action) =>
       handle(state, IM.run(state.editorIM, Some(state.editor), action))
 
-    let keyUpdate = (state: State.t, changes) =>
-      handle(state, IM.run(state.editorIM, Some(state.editor), KeyUpdate(changes)))
+    let keyUpdate = async (state: State.t, changes) => {
+      while IM.isEditorLocked(state.editorIM) {
+        await Promise.make((res, _rej) => {
+          let _ = Js.Global.setTimeout(res, 0)
+        })
+      }
+
+      await handle(state, IM.run(state.editorIM, Some(state.editor), KeyUpdate(changes)))
+    }
 
     let activate = (state: State.t) => {
       // activated the input method with cursors positions
